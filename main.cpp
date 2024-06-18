@@ -1,6 +1,5 @@
 #include "esp_camera.h"
 
-// ESP32-CAM camera pin configuration
 #define PWDN_GPIO_NUM     32
 #define RESET_GPIO_NUM    -1
 #define XCLK_GPIO_NUM      0
@@ -18,10 +17,24 @@
 #define HREF_GPIO_NUM     23
 #define PCLK_GPIO_NUM     22
 
+// eye closure detection variables
+int eyeClosedFrames = 0;
+int eyeClosedThreshold = 10;
+bool drowsy = false;
+
+// checks average brightness of frame
+// low brightness = eyes closed
+float getFrameBrightness(camera_fb_t* fb) {
+  float total = 0;
+  for (int i = 0; i < fb->len; i++) {
+    total += fb->buf[i];
+  }
+  return total / fb->len;
+}
+
 void setup() {
   Serial.begin(115200);
 
-  // camera configuration
   camera_config_t config;
   config.ledc_channel = LEDC_CHANNEL_0;
   config.ledc_timer   = LEDC_TIMER_0;
@@ -52,18 +65,34 @@ void setup() {
     return;
   }
 
-  Serial.println("Camera initialized successfully");
+  Serial.println("Camera ready. Monitoring driver...");
 }
 
 void loop() {
-  // capturing frame
   camera_fb_t* fb = esp_camera_fb_get();
   if (!fb) {
     Serial.println("Frame capture failed");
     return;
   }
 
-  Serial.println("Frame captured successfully");
+  float brightness = getFrameBrightness(fb);
   esp_camera_fb_return(fb);
-  delay(1000);
+
+  // low brightness means eyes are closed
+  if (brightness < 100) {
+    eyeClosedFrames++;
+    Serial.println("Eyes closed! Count: " + String(eyeClosedFrames));
+  } else {
+    eyeClosedFrames = 0;
+    drowsy = false;
+    Serial.println("Eyes open. Brightness: " + String(brightness));
+  }
+
+  // if eyes closed for too many frames = drowsy
+  if (eyeClosedFrames >= eyeClosedThreshold) {
+    drowsy = true;
+    Serial.println("DROWSINESS DETECTED!");
+  }
+
+  delay(100);
 }
