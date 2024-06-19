@@ -1,4 +1,7 @@
 #include "esp_camera.h"
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <time.h>
 
 #define PWDN_GPIO_NUM     32
 #define RESET_GPIO_NUM    -1
@@ -19,9 +22,16 @@
 
 #define BUZZER_PIN 4
 
+const char* ssid = "YOUR_WIFI_NAME";
+const char* password = "YOUR_WIFI_PASSWORD";
+const char* telegramUsername = "@YOUR_TELEGRAM_USERNAME";
+const char* apiKey = "YOUR_CALLMEBOT_API_KEY";
+
 int eyeClosedFrames = 0;
 int eyeClosedThreshold = 10;
 bool drowsy = false;
+unsigned long lastAlertTime = 0;
+int alertCooldown = 30000; // 30 seconds between alerts
 
 float getFrameBrightness(camera_fb_t* fb) {
   float total = 0;
@@ -41,9 +51,36 @@ void buzzAlert() {
   }
 }
 
+String getTime() {
+  time_t now = time(nullptr);
+  struct tm* t = localtime(&now);
+  char buf[30];
+  strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", t);
+  return String(buf);
+}
+
+void sendAlert(String message) {
+  // sending telegram alert
+  HTTPClient http;
+  String url = "https://api.callmebot.com/text.php?user=" + String(telegramUsername) + "&apikey=" + String(apiKey) + "&text=" + message;
+  http.begin(url);
+  http.GET();
+  http.end();
+}
+
 void setup() {
   Serial.begin(115200);
   pinMode(BUZZER_PIN, OUTPUT);
+
+  WiFi.begin(ssid, password);
+  Serial.print("Connecting to WiFi");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println(" Connected!");
+  configTime(19800, 0, "pool.ntp.org");
+  delay(2000);
 
   camera_config_t config;
   config.ledc_channel = LEDC_CHANNEL_0;
@@ -99,8 +136,14 @@ void loop() {
 
   if (eyeClosedFrames >= eyeClosedThreshold) {
     drowsy = true;
-    Serial.println("DROWSINESS DETECTED! Buzzing alert!");
+    Serial.println("DROWSINESS DETECTED!");
     buzzAlert();
+
+    // send telegram alert every 30 seconds
+    if (millis() - lastAlertTime > alertCooldown) {
+      sendAlert("DROWSINESS ALERT! Driver appears to be sleeping at " + getTime());
+      lastAlertTime = millis();
+    }
   }
 
   delay(100);
