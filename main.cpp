@@ -17,13 +17,12 @@
 #define HREF_GPIO_NUM     23
 #define PCLK_GPIO_NUM     22
 
-// eye closure detection variables
+#define BUZZER_PIN 4
+
 int eyeClosedFrames = 0;
 int eyeClosedThreshold = 10;
 bool drowsy = false;
 
-// checks average brightness of frame
-// low brightness = eyes closed
 float getFrameBrightness(camera_fb_t* fb) {
   float total = 0;
   for (int i = 0; i < fb->len; i++) {
@@ -32,8 +31,19 @@ float getFrameBrightness(camera_fb_t* fb) {
   return total / fb->len;
 }
 
+void buzzAlert() {
+  // buzzing 3 times to wake driver up
+  for (int i = 0; i < 3; i++) {
+    digitalWrite(BUZZER_PIN, HIGH);
+    delay(300);
+    digitalWrite(BUZZER_PIN, LOW);
+    delay(200);
+  }
+}
+
 void setup() {
   Serial.begin(115200);
+  pinMode(BUZZER_PIN, OUTPUT);
 
   camera_config_t config;
   config.ledc_channel = LEDC_CHANNEL_0;
@@ -78,7 +88,6 @@ void loop() {
   float brightness = getFrameBrightness(fb);
   esp_camera_fb_return(fb);
 
-  // low brightness means eyes are closed
   if (brightness < 100) {
     eyeClosedFrames++;
     Serial.println("Eyes closed! Count: " + String(eyeClosedFrames));
@@ -88,10 +97,10 @@ void loop() {
     Serial.println("Eyes open. Brightness: " + String(brightness));
   }
 
-  // if eyes closed for too many frames = drowsy
   if (eyeClosedFrames >= eyeClosedThreshold) {
     drowsy = true;
-    Serial.println("DROWSINESS DETECTED!");
+    Serial.println("DROWSINESS DETECTED! Buzzing alert!");
+    buzzAlert();
   }
 
   delay(100);
