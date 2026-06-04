@@ -31,7 +31,26 @@ int eyeClosedFrames = 0;
 int eyeClosedThreshold = 10;
 bool drowsy = false;
 unsigned long lastAlertTime = 0;
-int alertCooldown = 30000; // 30 seconds between alerts
+int alertCooldown = 30000;
+
+void reconnectWifi() {
+  // retry wifi if disconnected
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("WiFi lost! Reconnecting...");
+    WiFi.begin(ssid, password);
+    int attempts = 0;
+    while (WiFi.status() != WL_CONNECTED && attempts < 20) {
+      delay(500);
+      Serial.print(".");
+      attempts++;
+    }
+    if (WiFi.status() == WL_CONNECTED) {
+      Serial.println("Reconnected!");
+    } else {
+      Serial.println("Reconnection failed.");
+    }
+  }
+}
 
 float getFrameBrightness(camera_fb_t* fb) {
   float total = 0;
@@ -116,6 +135,8 @@ void setup() {
 }
 
 void loop() {
+  reconnectWifi();
+
   camera_fb_t* fb = esp_camera_fb_get();
   if (!fb) {
     Serial.println("Frame capture failed");
@@ -139,7 +160,6 @@ void loop() {
     Serial.println("DROWSINESS DETECTED!");
     buzzAlert();
 
-    // send telegram alert every 30 seconds
     if (millis() - lastAlertTime > alertCooldown) {
       sendAlert("DROWSINESS ALERT! Driver appears to be sleeping at " + getTime());
       lastAlertTime = millis();
