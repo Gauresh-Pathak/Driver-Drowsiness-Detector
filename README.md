@@ -36,5 +36,12 @@ I built this as a low cost embedded solution that can be fitted in any vehicle t
 6. Upload to ESP32-CAM
 7. Open Serial Monitor at 115200 baud
 
+## Future Improvements
+- Integrate proper facial landmark detection using OpenCV
+- Add GPS location to alert message
+- Yawn detection in addition to eye closure
+- Mobile app for fleet managers to monitor multiple drivers
+- Automatic brake assist integration
+
 ## Built by
 Gauresh Pathak — Electronics and Telecommunication Engineering Student, Mumbai
